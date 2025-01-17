@@ -58,19 +58,17 @@ async def get_post(id: int):
 
 
 #! To delete a specific post
-@app.delete("/posts/{id}")
+@app.delete("/posts/{id}",status_code=204)
 async def delete_post(id: int):
     post = find_post(id)
-    if not post:
+    if post is None:
         raise HTTPException(status_code=404, detail="Post not found")
-    my_posts.remove(post)
-    return {"message": "Post deleted successfully"}
-
-'''
-Here we are deleting the post but we are not sending the [status code 204 which means no content] which is the default status code when a post is deleted
-
-# TODO : Overriding the default status code to 204 from 200 -- We will do it in next commit 
-'''
+    try:
+        my_posts.remove(post)
+    except ValueError:
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+    
+    #! Standard Practice: When we delete something then we should not send any response back to the user
 
 
 
