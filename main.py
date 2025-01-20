@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.params import Body
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 from typing import Optional
 
 class Post(BaseModel):
@@ -13,6 +13,21 @@ class Post(BaseModel):
     class Config:
         extra="forbid"
 
+class update_Post(BaseModel):
+    title: Optional[str] = None
+    content: Optional[str] = None
+    published: Optional[bool] = None
+    rating: Optional[int] = None
+    id: Optional[int] = None
+
+    class Config:
+        extra = "forbid"
+
+    @model_validator(mode="before")
+    def at_least_one_field_required(cls, values):
+        if not any(values.values()):
+            raise ValueError("At least one field must be provided in the request.")
+        return values
         
 app = FastAPI()
 
@@ -23,10 +38,8 @@ my_posts=[
     ]
 
 #! Function to find the post
-def find_post(id):
-    for p in my_posts:
-        if p["id"] == id:
-            return p
+def find_post(post_id: int):
+    return next((post for post in my_posts if post["id"] == post_id), None)
         
 
 #! Starting point of the API
@@ -70,6 +83,33 @@ async def delete_post(id: int):
     
     #! Standard Practice: When we delete something then we should not send any response back to the user
 
+
+'''
+For Updating the post we have two ways:
+1. Put Method: Update the entire post [Requires entire Body to process the request]
+2. Patch Method: Update the part of the post [Requires the field that needs to be updated only]
+'''
+
+@app.put("/posts/{id}")
+async def update_post(id: int, post: Post):
+    post_to_update = find_post(id)
+    if post_to_update is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    post_to_update.update(post.model_dump())
+    return {"post": post_to_update}
+
+'''
+Doing the same with patch method
+'''
+
+@app.patch("/posts/{id}")
+async def update_post(id: int, post: update_Post):
+    post_to_update = find_post(id)
+    if post_to_update is None:
+        raise HTTPException(status_code=404, detail="Post not found")
+    update_data = post.model_dump(exclude_unset=True)  
+    post_to_update.update(update_data)  
+    return {"post": post_to_update}
 
 
 #! Get all the Posts
